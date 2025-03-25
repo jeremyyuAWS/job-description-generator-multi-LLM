@@ -229,3 +229,6 @@ export async function rewriteContent(
 export function initializeDevToolsTracking(context: any) {
   window.devToolsContext = context;
 }
+
+// Export API_ENDPOINTS for use in the diagnostics component
+export { API_ENDPOINTS };

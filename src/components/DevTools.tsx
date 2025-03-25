@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useDevTools, ApiCall } from '../context/DevToolsContext';
+import ApiDiagnostics from './ApiDiagnostics';
 import { 
   Wrench, 
   XCircle, 
@@ -9,7 +10,9 @@ import {
   Copy,
   CheckCircle,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  Activity,
+  List
 } from 'lucide-react';
 
 const DevTools: React.FC = () => {
@@ -24,6 +27,7 @@ const DevTools: React.FC = () => {
   
   const [expandedCalls, setExpandedCalls] = useState<Record<string, boolean>>({});
   const [copiedStates, setCopiedStates] = useState<Record<string, boolean>>({});
+  const [activeTab, setActiveTab] = useState<'logs' | 'diagnostics'>('logs');
 
   if (!isEnabled) {
     return (
@@ -98,37 +102,65 @@ const DevTools: React.FC = () => {
 
   return (
     <div className="fixed bottom-0 right-0 z-50 w-full md:w-1/2 lg:w-1/3 h-96 bg-gray-900 text-white shadow-xl rounded-t-lg overflow-hidden">
-      <div className="flex items-center justify-between p-3 bg-gray-800 border-b border-gray-700">
-        <div className="flex items-center">
-          <Wrench className="h-5 w-5 mr-2" />
-          <h3 className="text-sm font-medium">HireWrite Developer Tools</h3>
+      <div className="flex flex-col bg-gray-800 border-b border-gray-700">
+        <div className="flex items-center justify-between p-3">
+          <div className="flex items-center">
+            <Wrench className="h-5 w-5 mr-2" />
+            <h3 className="text-sm font-medium">HireWrite Developer Tools</h3>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button 
+              onClick={clearApiCalls}
+              className="text-gray-400 hover:text-white transition-colors"
+              title="Clear All"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+            <button 
+              onClick={toggleDevTools}
+              className="text-gray-400 hover:text-white transition-colors"
+              title="Close"
+            >
+              <XCircle className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <button 
-            onClick={clearApiCalls}
-            className="text-gray-400 hover:text-white transition-colors"
-            title="Clear All"
+        
+        <div className="flex border-t border-gray-700">
+          <button
+            onClick={() => setActiveTab('logs')}
+            className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'logs' 
+                ? 'bg-gray-700 text-white' 
+                : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+            }`}
           >
-            <RefreshCw className="h-4 w-4" />
+            <List className="h-4 w-4 mr-2" />
+            API Logs
           </button>
-          <button 
-            onClick={toggleDevTools}
-            className="text-gray-400 hover:text-white transition-colors"
-            title="Close"
+          <button
+            onClick={() => setActiveTab('diagnostics')}
+            className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'diagnostics' 
+                ? 'bg-gray-700 text-white' 
+                : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+            }`}
           >
-            <XCircle className="h-4 w-4" />
+            <Activity className="h-4 w-4 mr-2" />
+            API Diagnostics
           </button>
         </div>
       </div>
       
-      <div className="overflow-y-auto h-[calc(100%-48px)] p-2 bg-gray-950 text-xs">
-        {apiCalls.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            <p>No API calls recorded yet. Start using the application to see API calls here.</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {apiCalls.map((call) => (
+      <div className="overflow-y-auto h-[calc(100%-84px)] p-2 bg-gray-950 text-xs">
+        {activeTab === 'logs' ? (
+          apiCalls.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              <p>No API calls recorded yet. Start using the application to see API calls here.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {apiCalls.map((call) => (
               <div key={call.id} className="border border-gray-800 rounded-md overflow-hidden">
                 <div 
                   className="flex items-center justify-between p-2 bg-gray-800 cursor-pointer hover:bg-gray-700"
@@ -227,8 +259,11 @@ const DevTools: React.FC = () => {
                   </div>
                 )}
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )
+        ) : (
+          <ApiDiagnostics />
         )}
       </div>
     </div>
