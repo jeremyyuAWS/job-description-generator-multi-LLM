@@ -31,6 +31,25 @@ try {
   if (!envContent.includes('VITE_SUPABASE_URL=')) missingVars.push('VITE_SUPABASE_URL');
   if (!envContent.includes('VITE_SUPABASE_ANON_KEY=')) missingVars.push('VITE_SUPABASE_ANON_KEY');
   
+  // Check for placeholder values in VITE_SUPABASE_ANON_KEY
+  const anonKeyMatch = envContent.match(/VITE_SUPABASE_ANON_KEY=([^\r\n]+)/);
+  if (anonKeyMatch) {
+    const anonKeyValue = anonKeyMatch[1].trim();
+    const placeholderPatterns = [
+      '<your_supabase_anon_key_here>',
+      'your-supabase-anon-key',
+      'your_supabase_anon_key',
+      'placeholder',
+      'example'
+    ];
+    
+    if (placeholderPatterns.some(pattern => anonKeyValue.toLowerCase().includes(pattern.toLowerCase()))) {
+      console.warn('⚠️  WARNING: VITE_SUPABASE_ANON_KEY appears to contain a placeholder value!');
+      console.warn('   This will cause authentication failures with Supabase.');
+      console.warn('   Please replace it with your actual Supabase anon key.');
+    }
+  }
+  
   if (missingVars.length > 0) {
     console.warn(`⚠️  The following environment variables are missing or empty in .env.production:`);
     missingVars.forEach(v => console.warn(`   - ${v}`));

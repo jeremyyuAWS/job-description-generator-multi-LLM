@@ -143,6 +143,38 @@ HireWrite includes built-in developer tools to help debug API calls and monitor 
 2. View detailed logs of all API calls
 3. Analyze request/response data and performance metrics
 
+## Troubleshooting
+
+### 401 Unauthorized Errors
+
+If you encounter 401 Unauthorized errors when making requests to Supabase Edge Functions, follow these steps:
+
+1. **Verify Supabase Anon Key**:
+   - Check that your `VITE_SUPABASE_ANON_KEY` in the `.env` file matches exactly with the anon key from your Supabase dashboard
+   - Go to Supabase Dashboard > Settings > API > Project API keys to find your correct anon key
+   - Ensure there are no extra spaces or characters when copying the key
+
+2. **Environment Variable Configuration**:
+   - For local development:
+     - Confirm that `.env` file exists in the project root (not just `.env.example`)
+     - Restart your development server after updating environment variables
+     - Use `console.log(import.meta.env.VITE_SUPABASE_ANON_KEY)` to verify the key is loaded correctly
+
+   - For production deployment:
+     - Verify environment variables are correctly set in your hosting platform (Netlify, Vercel, etc.)
+     - Check deployment logs to ensure variables are being injected during build
+     - Trigger a new deployment after updating environment variables
+
+3. **CORS and Headers**:
+   - Ensure your Supabase project has the correct CORS configuration
+   - Check that your requests include the required `Authorization` header with the anon key
+
+4. **Supabase Function Permissions**:
+   - Verify that your edge functions have the correct permissions set
+   - Some functions may require authenticated access rather than anonymous access
+
+If problems persist, enable the Developer Tools to inspect the exact request headers and response details for more specific troubleshooting.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.

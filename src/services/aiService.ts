@@ -124,11 +124,20 @@ export async function generateContent({
     // Log the payload before sending the request
     console.log(`Sending request to ${model} with payload keys:`, Object.keys(payload).join(", "));
     
+    // Log authorization header in a safe way (only in development)
+    const authKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (import.meta.env.DEV) {
+      const maskedKey = authKey ? 
+        `${authKey.substring(0, 4)}...${authKey.substring(authKey.length - 4)}` : 
+        'undefined or empty';
+      console.log(`Authorization header: Bearer ${maskedKey} (length: ${authKey?.length || 0})`);
+    }
+    
     const response = await fetch(functionUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        'Authorization': `Bearer ${authKey}`
       },
       body: JSON.stringify(payload)
     });
@@ -140,12 +149,31 @@ export async function generateContent({
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Error from Lyzr Agents (${model}):`, errorText);
+      const status = response.status;
+      
+      // Enhanced error logging
+      console.error(`Error from Lyzr Agents (${model}): Status ${status}`);
+      console.error(`Response body:`, errorText);
+      
+      // Log additional details for common error codes
+      if (status === 401) {
+        console.error('Authentication error: Check that VITE_SUPABASE_ANON_KEY is correctly set and valid');
+        if (import.meta.env.DEV) {
+          console.error('Environment variables in .env files may need to be updated or the app restarted');
+        }
+      } else if (status === 403) {
+        console.error('Authorization error: The provided key may not have permission to access this function');
+      } else if (status === 404) {
+        console.error('Not found error: The Edge Function URL may be incorrect or the function may not be deployed');
+      }
 
       // Update DevTools with error
       if (devToolsContext && callId) {
         devToolsContext.updateApiCall(callId, {
-          error: errorText,
+          error: {
+            status,
+            body: errorText
+          },
           status: 'error',
           duration
         });
@@ -160,7 +188,8 @@ export async function generateContent({
         success: false
       });
 
-      throw new Error(`AI service error: ${response.status} ${errorText}`);
+      // Include more details in the thrown error
+      throw new Error(`AI service error: ${response.status} ${errorText.substring(0, 200)}${errorText.length > 200 ? '...' : ''}`);
     }
 
     const data: AIResponse = await response.json();
@@ -197,8 +226,20 @@ export async function generateContent({
       section,
       model,
       hasCurrentContent: !!currentContent,
-      currentContentLength: currentContent?.length || 0
+      currentContentLength: currentContent?.length || 0,
+      apiEndpoint: functionUrl,
+      hasAuthKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+      authKeyLength: import.meta.env.VITE_SUPABASE_ANON_KEY?.length || 0
     });
+    
+    // In development mode, provide more detailed troubleshooting steps
+    if (import.meta.env.DEV) {
+      console.info('Troubleshooting steps:');
+      console.info('1. Check that VITE_SUPABASE_ANON_KEY is set correctly in your .env file');
+      console.info('2. Verify the Edge Function URLs are correct in API_ENDPOINTS');
+      console.info('3. Ensure the Edge Functions are deployed and accessible');
+      console.info('4. Check the Supabase project console for function logs');
+    }
 
     // If we haven't already recorded the error in DevTools
     if (devToolsContext && callId && error instanceof Error) {

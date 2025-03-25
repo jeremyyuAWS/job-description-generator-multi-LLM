@@ -67,6 +67,39 @@ const ApiDiagnostics: React.FC = () => {
       } else {
         // Handle non-OK response
         const errorText = await response.text();
+        
+        // Get response headers for additional debugging
+        const headers: Record<string, string> = {};
+        response.headers.forEach((value, key) => {
+          headers[key] = value;
+        });
+        
+        // Create detailed error message
+        let detailedError = `Status ${response.status}: ${response.statusText}\n\n`;
+        
+        // Add authentication-specific context for 401 errors
+        if (response.status === 401) {
+          detailedError += "Authentication Error: The request was rejected due to invalid credentials.\n";
+          detailedError += "This may be caused by an invalid or missing Supabase anon key.\n\n";
+        }
+        
+        // Add response body
+        detailedError += `Response Body: ${errorText || 'No response body'}\n\n`;
+        
+        // Add key headers that might be relevant for debugging
+        detailedError += "Key Headers:\n";
+        ['content-type', 'www-authenticate', 'x-error', 'server'].forEach(key => {
+          if (headers[key]) {
+            detailedError += `${key}: ${headers[key]}\n`;
+          }
+        });
+        
+        console.error(`API Diagnostics Error for ${endpointName}:`, {
+          status: response.status,
+          headers,
+          body: errorText
+        });
+        
         setDiagnostics(prev => 
           prev.map(diag => 
             diag.name === endpointName 
@@ -74,7 +107,7 @@ const ApiDiagnostics: React.FC = () => {
                   ...diag, 
                   status: 'error', 
                   responseTime,
-                  errorMessage: `Status ${response.status}: ${errorText || 'No response body'}`,
+                  errorMessage: detailedError,
                   lastTestedAt: new Date()
                 } 
               : diag
@@ -84,6 +117,15 @@ const ApiDiagnostics: React.FC = () => {
     } catch (error) {
       const responseTime = Date.now() - startTime;
       // Handle network or other errors
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      console.error(`API Diagnostics Network Error for ${endpointName}:`, error);
+      
+      // Check if this might be related to CORS or authentication
+      const detailedError = errorMessage.includes('NetworkError') || errorMessage.includes('CORS') 
+        ? `${errorMessage}\n\nThis may be a CORS issue or the endpoint may not be accessible.`
+        : errorMessage;
+      
       setDiagnostics(prev => 
         prev.map(diag => 
           diag.name === endpointName 
@@ -91,7 +133,7 @@ const ApiDiagnostics: React.FC = () => {
                 ...diag, 
                 status: 'error', 
                 responseTime,
-                errorMessage: error instanceof Error ? error.message : String(error),
+                errorMessage: detailedError,
                 lastTestedAt: new Date()
               } 
             : diag
@@ -233,7 +275,12 @@ const ApiDiagnostics: React.FC = () => {
                     backgroundColor: '#ffebee',
                     borderRadius: '4px',
                     color: '#d32f2f',
-                    wordBreak: 'break-word'
+                    wordBreak: 'break-word',
+                    whiteSpace: 'pre-wrap',
+                    fontFamily: 'monospace',
+                    fontSize: '11px',
+                    maxHeight: '200px',
+                    overflowY: 'auto'
                   }}
                 >
                   {diag.errorMessage}
