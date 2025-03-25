@@ -70,10 +70,9 @@ const ModelComparisonModal: React.FC<ModelComparisonModalProps> = ({
       llama: 0
     });
 
-    // Generate content for each model
-    llmModels.forEach(model => {
-      generateForModel(model.id);
-    });
+    // Generate content for each model concurrently
+    const promises = llmModels.map(model => generateForModel(model.id));
+    await Promise.all(promises);
   };
 
   const generateForModel = async (modelId: LLMModelType) => {
