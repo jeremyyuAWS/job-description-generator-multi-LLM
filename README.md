@@ -35,13 +35,17 @@ cd hirewrite
 npm install
 ```
 
-3. Create a `.env` file with your Supabase configuration:
+3. Copy the `.env.example` file to `.env` and fill in your environment variables:
+```bash
+cp .env.example .env
+```
+Then edit the `.env` file with your Supabase configuration:
 ```
 VITE_SUPABASE_URL=your-supabase-url
 VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
-4. Start the development server:
+4. Start the development server to test locally:
 ```bash
 npm run dev
 ```
