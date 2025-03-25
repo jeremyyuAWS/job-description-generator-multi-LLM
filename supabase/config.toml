@@ -87,3 +87,24 @@ backend = "postgres"
 [functions]
 enabled = true
 port = 54326
+
+# Environment Variables Configuration
+# -----------------------------------
+# Sensitive values like API keys should be provided via environment variables
+# and not committed to version control.
+#
+# For local development:
+# - Create a .env file in the supabase/functions directory with your keys
+# - Example: LYZR_API_KEY=your_api_key_here
+#
+# For deployment:
+# - Set secrets using the Supabase CLI:
+#   supabase secrets set LYZR_API_KEY=your_api_key_here
+#
+# - Or via the Supabase dashboard:
+#   Settings > API > Environment Variables
+#
+# Required environment variables for this project:
+# - LYZR_API_KEY: API key for Lyzr AI services
+# - OPENAI_API_KEY: API key for OpenAI services
+# - ANTHROPIC_API_KEY: API key for Anthropic services (if used)

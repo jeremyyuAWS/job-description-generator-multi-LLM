@@ -1,8 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+/**
+ * Claude Sonnet JD Generator Edge Function
+ * 
+ * This Edge function handles job description generation, enhancement, and rewriting
+ * using Claude Sonnet via the Lyzr AI platform.
+ */
+
 // Claude Sonnet endpoint configuration using Lyzr AI
 const LYZR_API_URL = "https://agent-dev.test.studio.lyzr.ai/v3/inference/chat/";
-const LYZR_API_KEY = "sk-default-4oGju1PuWIBzOtgXrltS75fxTPO1AjEr";
+const LYZR_API_KEY = Deno.env.get("LYZR_API_KEY") || ""; // Get API key from environment variable
 const CLAUDE_AGENT_ID = "67df369d8f451bb9b9b6cbe2"; // Claude Sonnet agent ID
 
 interface JobDescriptionRequest {
@@ -24,47 +31,54 @@ interface JobDescriptionRequest {
   session_id?: string;
 }
 
+// Standard CORS headers for all responses
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Content-Type": "application/json"
+};
+
+// Handle CORS preflight requests
+function handleCorsPreflightRequest() {
+  return new Response(null, {
+    headers: CORS_HEADERS
+  });
+}
+
+// Create standardized error response
+function createErrorResponse(message: string, status: number, details?: string) {
+  const errorBody = { error: message };
+  if (details) errorBody["details"] = details;
+  
+  return new Response(JSON.stringify(errorBody), {
+    status,
+    headers: CORS_HEADERS
+  });
+}
+
 serve(async (req) => {
   // Handle preflight CORS request
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      },
-    });
+    return handleCorsPreflightRequest();
   }
 
   try {
     // Only allow POST requests
     if (req.method !== "POST") {
-      return new Response(
-        JSON.stringify({ error: "Method not allowed" }),
-        {
-          status: 405,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
-        }
-      );
+      return createErrorResponse("Method not allowed", 405);
+    }
+    
+    // Verify API key is available
+    if (!LYZR_API_KEY) {
+      return createErrorResponse("API key configuration error", 500);
     }
 
     // Parse the request body directly
     const requestData: JobDescriptionRequest = await req.json();
     
     if (!requestData.jobTitle) {
-      return new Response(
-        JSON.stringify({ error: "Job title is required" }),
-        {
-          status: 400,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
-        }
-      );
+      return createErrorResponse("Job title is required", 400);
     }
 
     // Build the message text for the AI
@@ -84,11 +98,12 @@ serve(async (req) => {
       message: messageText
     };
     
-    console.log("Claude: Request structure:", JSON.stringify({
-      keys: Object.keys(lyzrRequestBody),
-      messageType: typeof lyzrRequestBody.message,
-      messageLength: lyzrRequestBody.message?.length || 0
-    }));
+    // Only log in development or when debugging is needed
+    // console.log("Claude: Request structure:", JSON.stringify({
+    //   keys: Object.keys(lyzrRequestBody),
+    //   messageType: typeof lyzrRequestBody.message,
+    //   messageLength: lyzrRequestBody.message?.length || 0
+    // }));
 
     // Call the Lyzr API with the request
     const lyzrResponse = await fetch(LYZR_API_URL, {
@@ -105,16 +120,7 @@ serve(async (req) => {
       const errorText = await lyzrResponse.text();
       console.error(`Claude: Lyzr API error (${lyzrResponse.status}):`, errorText);
       
-      return new Response(
-        JSON.stringify({ error: "Error from Claude Sonnet service", details: errorText }),
-        {
-          status: lyzrResponse.status,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
-        }
-      );
+      return createErrorResponse("Error from Claude Sonnet service", lyzrResponse.status, errorText);
     }
 
     // Parse and return the successful response
@@ -127,25 +133,14 @@ serve(async (req) => {
         raw: lyzrData,
       }),
       {
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: CORS_HEADERS
       }
     );
   } catch (error) {
+    // Log critical errors
     console.error("Claude: Error in edge function:", error.message);
-    console.error("Claude: Stack trace:", error.stack);
-    return new Response(
-      JSON.stringify({ error: "Internal server error", details: error.message }),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      }
-    );
+    
+    return createErrorResponse("Internal server error", 500, error.message);
   }
 });
 

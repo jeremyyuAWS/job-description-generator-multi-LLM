@@ -97,6 +97,10 @@ const CenterPanel: React.FC<CenterPanelProps> = ({
     const currentContent = jobDescription.sections[activeSection].content;
     if (!currentContent || !jobDescription.title) return;
     
+    // Log the start of the rewrite process
+    console.log(`Starting rewrite for section: ${activeSection} with model: ${selectedModel}`);
+    console.log('Current content length:', currentContent.length);
+    
     setIsLoading('rewrite');
     setLoadingStatus('Preparing to rewrite content...');
     
@@ -107,6 +111,13 @@ const CenterPanel: React.FC<CenterPanelProps> = ({
       
       setLoadingStatus(`Rewriting ${sectionLabels[activeSection]} with ${selectedModel.toUpperCase()}...`);
       await new Promise(resolve => setTimeout(resolve, 700)); // Another delay
+      
+      console.log('Calling rewriteContent API with params:', {
+        jobTitle: jobDescription.title,
+        section: activeSection,
+        tone: jobDescription.tone,
+        model: selectedModel
+      });
       
       const rewrittenContent = await rewriteContent({
         jobTitle: jobDescription.title,
@@ -121,14 +132,28 @@ const CenterPanel: React.FC<CenterPanelProps> = ({
         model: selectedModel
       }, currentContent);
       
+      console.log('Rewrite successful. New content length:', rewrittenContent.length);
+      
       setLoadingStatus('Polishing final content...');
       await new Promise(resolve => setTimeout(resolve, 300)); // Final delay
       
       updateSection(activeSection, rewrittenContent);
     } catch (error) {
       console.error('Error rewriting content:', error);
-      setLoadingStatus('Error occurred while rewriting content.');
+      
+      // More detailed error handling
+      const errorMessage = error instanceof Error 
+        ? `Error: ${error.message}` 
+        : 'Unknown error occurred while rewriting content.';
+      
+      console.error(errorMessage);
+      setLoadingStatus(errorMessage.length > 50 
+        ? 'Error occurred while rewriting content.' 
+        : errorMessage);
     } finally {
+      // Log completion of the process
+      console.log(`Rewrite process for ${activeSection} completed`);
+      
       // Clear loading status after a brief delay to show completion
       setTimeout(() => {
         setIsLoading(null);
@@ -320,10 +345,15 @@ const CenterPanel: React.FC<CenterPanelProps> = ({
                   className={`flex items-center px-3 py-2 ${
                     isLoading === 'rewrite' 
                       ? 'bg-green-100 text-green-500 cursor-not-allowed' 
-                      : 'bg-green-50 text-green-700 hover:bg-green-100'
+                      : jobDescription.sections[activeSection].content && jobDescription.title
+                        ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   } rounded-md text-sm font-medium`}
                   onClick={handleRewriteContent}
                   disabled={isLoading !== null || !jobDescription.sections[activeSection].content || !jobDescription.title}
+                  title={!jobDescription.sections[activeSection].content || !jobDescription.title 
+                    ? "Please add content and job title first" 
+                    : `Rewrite content using ${selectedModel}`}
                 >
                   {isLoading === 'rewrite' ? (
                     <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -340,8 +370,16 @@ const CenterPanel: React.FC<CenterPanelProps> = ({
               
               {/* Real-time status message */}
               {isLoading && loadingStatus && (
-                <div className="mt-3 p-2 bg-indigo-50 border border-indigo-100 rounded text-sm text-indigo-700 flex items-center">
-                  <div className="animate-pulse h-2 w-2 bg-indigo-500 rounded-full mr-2"></div>
+                <div className={`mt-3 p-2 border rounded text-sm flex items-center ${
+                  loadingStatus.includes('Error') 
+                    ? 'bg-red-50 border-red-100 text-red-700' 
+                    : 'bg-indigo-50 border-indigo-100 text-indigo-700'
+                }`}>
+                  {loadingStatus.includes('Error') ? (
+                    <AlertCircle className="h-4 w-4 mr-2 text-red-500" />
+                  ) : (
+                    <div className="animate-pulse h-2 w-2 bg-indigo-500 rounded-full mr-2"></div>
+                  )}
                   <span>{loadingStatus}</span>
                 </div>
               )}

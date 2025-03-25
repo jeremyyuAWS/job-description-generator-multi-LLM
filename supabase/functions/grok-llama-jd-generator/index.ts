@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // LLaMA endpoint configuration using Lyzr AI
 const LYZR_API_URL = "https://agent-dev.test.studio.lyzr.ai/v3/inference/chat/";
-const LYZR_API_KEY = "sk-default-4oGju1PuWIBzOtgXrltS75fxTPO1AjEr";
+const LYZR_API_KEY = Deno.env.get("LYZR_API_KEY") || ""; // Get API key from environment variable
 const LLAMA_AGENT_ID = "67df490b8f451bb9b9b6cc8c"; 
 
 interface JobDescriptionRequest {
@@ -24,15 +24,19 @@ interface JobDescriptionRequest {
   session_id?: string;
 }
 
+// Standard headers for CORS and content type
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Content-Type": "application/json"
+};
+
 serve(async (req) => {
   // Handle preflight CORS request
   if (req.method === "OPTIONS") {
     return new Response(null, {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      },
+      headers: corsHeaders
     });
   }
 
@@ -43,10 +47,7 @@ serve(async (req) => {
         JSON.stringify({ error: "Method not allowed" }),
         {
           status: 405,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
+          headers: corsHeaders
         }
       );
     }
@@ -59,10 +60,7 @@ serve(async (req) => {
         JSON.stringify({ error: "Job title is required" }),
         {
           status: 400,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
+          headers: corsHeaders
         }
       );
     }
@@ -115,19 +113,18 @@ serve(async (req) => {
           success: true,
           content: lyzrData.response || lyzrData.message,
           raw: lyzrData,
+          isMockResponse: false
         }),
         {
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
+          headers: corsHeaders
         }
       );
     } catch (error) {
       console.error("LLaMA: Error calling Lyzr API:", error.message);
       console.error("LLaMA: Stack trace:", error.stack);
       
-      // For demonstration purposes, use mock response as backup
+      // Fallback to mock response when API call fails
+      // This provides graceful degradation and ensures users still get a response
       console.log("LLaMA: Falling back to mock response");
       const mockContent = generateMockResponse(requestData);
       
@@ -135,13 +132,11 @@ serve(async (req) => {
         JSON.stringify({
           success: true,
           content: mockContent,
-          raw: { mock: true, error: error.message }
+          raw: { mock: true, error: error.message },
+          isMockResponse: true // Flag to indicate this is a mock response
         }),
         {
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
+          headers: corsHeaders
         }
       );
     }
@@ -150,13 +145,14 @@ serve(async (req) => {
     console.error("LLaMA: Error in edge function:", error.message);
     console.error("LLaMA: Stack trace:", error.stack);
     return new Response(
-      JSON.stringify({ error: "Internal server error", details: error.message }),
+      JSON.stringify({ 
+        error: "Internal server error", 
+        details: error.message,
+        success: false
+      }),
       {
         status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: corsHeaders
       }
     );
   }
@@ -288,7 +284,11 @@ For the Company Description section, use your strengths as LLaMA to:
   return prompt;
 }
 
-// This is a mock function for demonstration purposes only
+/**
+ * Generates a mock response when the API call fails
+ * This provides fallback content to ensure the application remains functional
+ * even when external services are unavailable
+ */
 function generateMockResponse(data: JobDescriptionRequest): string {
   const { jobTitle, seniority, section, tone, additionalContext } = data;
   

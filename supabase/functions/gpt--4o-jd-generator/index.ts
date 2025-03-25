@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // GPT-4o endpoint configuration using Lyzr AI
 const LYZR_API_URL = "https://agent-dev.test.studio.lyzr.ai/v3/inference/chat/";
-const LYZR_API_KEY = "sk-default-4oGju1PuWIBzOtgXrltS75fxTPO1AjEr";
+const LYZR_API_KEY = Deno.env.get("LYZR_API_KEY") || ""; // Use environment variable
 const GPT4O_AGENT_ID = "67df490b8f451bb9b9b6cc8b";
 
 interface JobDescriptionRequest {
@@ -24,15 +24,19 @@ interface JobDescriptionRequest {
   session_id?: string;
 }
 
+// Standard CORS headers for all responses
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Content-Type": "application/json",
+};
+
 serve(async (req) => {
   // Handle preflight CORS request
   if (req.method === "OPTIONS") {
     return new Response(null, {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      },
+      headers: corsHeaders,
     });
   }
 
@@ -43,10 +47,7 @@ serve(async (req) => {
         JSON.stringify({ error: "Method not allowed" }),
         {
           status: 405,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
+          headers: corsHeaders,
         }
       );
     }
@@ -59,10 +60,19 @@ serve(async (req) => {
         JSON.stringify({ error: "Job title is required" }),
         {
           status: 400,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
+          headers: corsHeaders,
+        }
+      );
+    }
+    
+    // Validate API key is available
+    if (!LYZR_API_KEY) {
+      console.error("GPT-4o: Missing API key");
+      return new Response(
+        JSON.stringify({ error: "Configuration error", details: "API key not configured" }),
+        {
+          status: 500,
+          headers: corsHeaders,
         }
       );
     }
@@ -109,10 +119,7 @@ serve(async (req) => {
         JSON.stringify({ error: "Error from GPT-4o service", details: errorText }),
         {
           status: lyzrResponse.status,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
+          headers: corsHeaders,
         }
       );
     }
@@ -127,10 +134,7 @@ serve(async (req) => {
         raw: lyzrData,
       }),
       {
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: corsHeaders,
       }
     );
   } catch (error) {
@@ -140,10 +144,7 @@ serve(async (req) => {
       JSON.stringify({ error: "Internal server error", details: error.message }),
       {
         status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: corsHeaders,
       }
     );
   }

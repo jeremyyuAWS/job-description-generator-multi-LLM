@@ -40,6 +40,17 @@ const AGENT_IDS = {
 
 /**
  * Generate job description content using the AI service
+ * 
+ * @param params - The parameters for content generation
+ * @param params.jobTitle - Required: The job title for the description
+ * @param params.section - Required: The section of the job description to generate
+ * @param params.tone - The tone to use for the content
+ * @param params.currentContent - Existing content (required for rewrite/enhance actions)
+ * @param params.action - The action to perform: 'generate', 'rewrite', or 'enhance'
+ * @param params.model - The AI model to use: 'claude', 'gpt4o', or 'llama'
+ * @param params.additionalContext - Any additional context to help the AI
+ * 
+ * @returns A promise that resolves to the generated content
  */
 export async function generateContent({
   jobTitle,
@@ -179,6 +190,15 @@ export async function generateContent({
     return data.content;
   } catch (error) {
     console.error(`Failed to generate content with ${model}:`, error);
+    
+    // Log additional context to help with debugging
+    console.error('Generation context:', {
+      action,
+      section,
+      model,
+      hasCurrentContent: !!currentContent,
+      currentContentLength: currentContent?.length || 0
+    });
 
     // If we haven't already recorded the error in DevTools
     if (devToolsContext && callId && error instanceof Error) {
@@ -186,6 +206,17 @@ export async function generateContent({
         error: { message: error.message, stack: error.stack },
         status: 'error',
         duration: Date.now() - startTime
+      });
+    }
+
+    // Track failed API call in analytics if not already tracked
+    if (!(error instanceof Error && error.message.includes('AI service error'))) {
+      analytics.trackModelUsage({
+        model,
+        action: action || 'generate',
+        section,
+        responseTime: Date.now() - startTime,
+        success: false
       });
     }
 
@@ -210,16 +241,38 @@ export async function enhanceContent(
 
 /**
  * Rewrite existing content using the AI service
+ * 
+ * @param jobDescription - The job description parameters including jobTitle, section, tone, etc.
+ * @param content - The current content to be rewritten
+ * @returns A promise that resolves to the rewritten content
+ * 
+ * This function specifically sets the action to 'rewrite' which instructs the AI
+ * to completely rewrite the content while maintaining the same information and context.
+ * Unlike 'enhance' which improves existing content, 'rewrite' produces a fresh version.
  */
 export async function rewriteContent(
   jobDescription: LLMGenerationParams,
   content: string
 ): Promise<string> {
-  return generateContent({
-    ...jobDescription,
-    currentContent: content,
-    action: 'rewrite'
-  });
+  try {
+    return await generateContent({
+      ...jobDescription,
+      currentContent: content,
+      action: 'rewrite'
+    });
+  } catch (error) {
+    console.error('Failed to rewrite content:', error);
+    // Log additional context to help with debugging
+    console.error('Rewrite attempt failed with parameters:', {
+      jobTitle: jobDescription.jobTitle,
+      section: jobDescription.section,
+      model: jobDescription.model || 'claude',
+      contentLength: content?.length || 0
+    });
+    
+    // Rethrow the error to be handled by the caller
+    throw new Error(`Failed to rewrite content: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 /**
