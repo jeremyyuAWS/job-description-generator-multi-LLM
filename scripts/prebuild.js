@@ -14,7 +14,10 @@ if (!fs.existsSync(envFile)) {
     fs.copyFileSync(envExample, envFile);
     console.log('✅ Created .env.production from example file.');
   } else {
-    console.error('❌ Error: No example environment file found. Build may fail due to missing environment variables.');
+    console.error('❌ Error: No .env.example file found. Please create one with the following required variables:');
+    console.error('   - VITE_SUPABASE_URL=your-supabase-url');
+    console.error('   - VITE_SUPABASE_ANON_KEY=your-supabase-anon-key');
+    console.error('   See README.md for more information on environment configuration.');
     process.exit(1);
   }
 }

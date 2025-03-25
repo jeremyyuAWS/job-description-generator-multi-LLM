@@ -74,6 +74,27 @@ supabase functions deploy grok-llama-jd-generator
 
 ## Configuration
 
+### Environment Variables
+
+HireWrite requires specific environment variables to connect to Supabase services. These are defined in the `.env.example` file at the project root:
+
+```
+VITE_SUPABASE_URL=https://gkzwjeanhjowwxzflcxb.supabase.co
+VITE_SUPABASE_ANON_KEY=<your_supabase_anon_key_here>
+```
+
+For local development:
+1. Copy `.env.example` to a new file named `.env`
+2. Replace the placeholder values with your actual Supabase credentials
+
+For production deployment on Netlify:
+1. Go to your Netlify project dashboard
+2. Navigate to Site settings > Environment variables
+3. Add both `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` with their respective values
+4. Trigger a new deployment for the changes to take effect
+
+Note: The build process will automatically create a `.env.production` file during deployment if environment variables are properly configured in the Netlify dashboard.
+
 ### LLM API Keys
 
 For the edge functions to work properly, you need to configure API keys for each model:
